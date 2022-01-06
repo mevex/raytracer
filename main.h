@@ -1,7 +1,7 @@
 #ifndef MAIN_H
 #define MAIN_H
 
-// NOTE: This is a collection of macros and typedefs widely used throughout the project
+// NOTE: This is a collection of utility macros and typedefs
 
 #include <cstdint>
 typedef int8_t i8;
@@ -21,14 +21,49 @@ typedef u8 byte;
 
 #define local_persist static
 #define global_variable static
-#define internal_function static
+#define shared_function static
 
 #define Min(a, b) ((a) < (b) ? (a) : (b))
 #define Max(a, b) ((a) > (b) ? (a) : (b))
 
+#include <limits>
+#define infinity std::numeric_limits<float>::infinity()
+#define pi 3.1415926535897932385f
+
+// NOTE(mevex): Utility Functions
+
+inline f32 DegreesToRadians(f32 degrees)
+{
+    f32 result = degrees * pi / 180.0f;
+    return result;
+}
+
+#include <time.h>
+inline f32 RandomFloat()
+{
+    // Returns a random real number in [0,1)
+    f32 result = rand() / (RAND_MAX + 1.0f);
+    return result;
+}
+
+inline f32 RandomFloat(f32 min, f32 max)
+{
+    // Returns a random real number in [min,max)
+    f32 result = min + (max-min)*RandomFloat();
+    return result;
+}
+
+
 #include "v3.h"
 #include "ray.h"
 #include "hittable.h"
+
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb/stb_image_write.h"
+
+#include <vector>
+using std::vector;
+
 
 class Canvas
 {
@@ -49,30 +84,32 @@ class Canvas
         memory = malloc(bpp * w * h);
     }
     
-    void SetPixel(i32 x, i32 y, u8 red, u8 green, u8 blue)
+    void SetPixel(i32 x, i32 y, f32 red, f32 green, f32 blue)
     {
+        u8 r,g,b;
+        
+        r = (u8)(255.99f * sqrt(red));
+        g = (u8)(255.99f * sqrt(green));
+        b = (u8)(255.99f * sqrt(blue));
+        
         red = Min(red, 255);
         green = Min(green, 255);
         blue = Min(blue, 255);
         
         i32* pixel = (i32*)memory;
         pixel += (height-y-1)*width + x;
-        *pixel = 255<<24 | blue << 16 | green << 8 | red;
-    }
-    
-    void SetPixel(i32 x, i32 y, f32 red, f32 green, f32 blue)
-    {
-        u8 r,g,b;
-        
-        r = (u8)(255.99f * red);
-        g = (u8)(255.99f * green);
-        b = (u8)(255.99f * blue);
-        
-        SetPixel(x, y, r, g, b);
+        *pixel = 255<<24 | b << 16 | g << 8 | r;
     }
     
     void SetPixel(i32 x, i32 y, color c)
     {
+        SetPixel(x, y, c.r, c.g, c.b);
+    }
+    
+    void SetPixel(i32 x, i32 y, color c, int spp)
+    {
+        f32 scale = 1.0f / spp;
+        c *= scale;
         SetPixel(x, y, c.r, c.g, c.b);
     }
     
@@ -105,6 +142,48 @@ class Camera
         vpHorizontal = {vpWidth, 0, 0};
         vpVertical = {0, vpHeight, 0};
         vpLowerLeftCorner = position - vpHorizontal/2.f - vpVertical/2.f  - v3(0, 0, focalLength);
+    }
+    
+    inline Ray GetRay(f32 u, f32 v)
+    {
+        v3 rayDirection = vpLowerLeftCorner + u*vpHorizontal + v*vpVertical - position;
+        Ray result(position, rayDirection);
+        return result;
+    }
+};
+
+class Scene
+{
+    public:
+    
+    vector<Hittable *> objects;
+    
+    Scene()
+    {
+        // TODO(mevex): Aggiungere cose?
+    }
+    
+    void Add(Hittable *obj)
+    {
+        objects.push_back(obj);
+    }
+    
+    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec)
+    {
+        bool result = false;
+        f32 closestT = tMax;
+        
+        for(auto& obj : objects)
+        {
+            // TODO(mevex): Make sure there is no need for a temp_rec
+            if(obj->Hit(r, tMin, closestT, rec))
+            {
+                result = true;
+                closestT = rec.t;
+            }
+        }
+        
+        return result;
     }
 };
 

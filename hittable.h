@@ -32,37 +32,34 @@ class Sphere : public Hittable {
     
     Sphere(p3 cen = {0,0,0}, f32 r = 0) : center(cen), radius(r) {}
     
-    virtual bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override;
-    
-};
-
-bool Sphere::Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec)
-{
-    v3 oc = r.origin - center;
-    f32 a = r.direction.LengthSquared();
-    f32 halfB = Dot(oc, r.direction);
-    f32 c = oc.LengthSquared() - radius*radius;
-    
-    f32 discriminant = halfB*halfB - a*c;
-    if(discriminant < 0)
-        return false;
-    
-    // NOTE(mevex): Find the nearest root that lies in the acceptable range
-    f32 sqrtDis = sqrt(discriminant);
-    f32 root = (-halfB - sqrtDis) / a;
-    if(root < tMin || root > tMax)
+    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec)
     {
-        root = (-halfB + sqrtDis) / a;
-        if(root < tMin || root > tMax)
+        v3 oc = r.origin - center;
+        f32 a = r.direction.LengthSquared();
+        f32 halfB = Dot(oc, r.direction);
+        f32 c = oc.LengthSquared() - radius*radius;
+        
+        f32 discriminant = halfB*halfB - a*c;
+        if(discriminant < 0)
             return false;
+        
+        // NOTE(mevex): Find the nearest root that lies in the acceptable range
+        f32 sqrtDis = sqrt(discriminant);
+        f32 root = (-halfB - sqrtDis) / a;
+        if(root < tMin || root > tMax)
+        {
+            root = (-halfB + sqrtDis) / a;
+            if(root < tMin || root > tMax)
+                return false;
+        }
+        
+        rec.p = r.At(root);
+        rec.t = root;
+        v3 outNormal = (rec.p - center) / radius;
+        rec.SetFaceNormal(r, outNormal);
+        
+        return true;
     }
-    
-    rec.p = r.At(root);
-    rec.t = root;
-    v3 outNormal = (rec.p - center) / radius;
-    rec.SetFaceNormal(r, outNormal);
-    
-    return true;
-}
+};
 
 #endif //HITTABLE_H

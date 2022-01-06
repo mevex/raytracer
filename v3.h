@@ -33,6 +33,28 @@ class v3
         return result;
     }
     
+    inline shared_function v3 Random()
+    {
+        v3 result = {RandomFloat(), RandomFloat(), RandomFloat()};
+        return result;
+    }
+    
+    inline shared_function v3 Random(f32 min, f32 max)
+    {
+        v3 result = {RandomFloat(min,max), RandomFloat(min,max), RandomFloat(min,max)};
+        return result;
+    }
+    
+    shared_function v3 RandomInUnitSphere()
+    {
+        while(true)
+        {
+            v3 p = Random(-1, 1);
+            if(p.LengthSquared() <= 1)
+                return p;
+        }
+    }
+    
     inline v3& operator+= (v3& v)
     {
         e[0] += v.e[0];

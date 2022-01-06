@@ -1,32 +1,23 @@
-#define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb/stb_image_write.h"
-
 #include "main.h"
 
-/* 
-f32 HitSphere(p3& center, f32 radius, Ray& r) {
-    v3 oc = r.origin - center;
-    f32 a = r.direction.LengthSquared();
-    f32 halfB = Dot(oc, r.direction);
-    f32 c = oc.LengthSquared() - radius*radius;
-    
-    f32 discriminant = halfB*halfB - a*c;
-    if(discriminant < 0)
-        return -1;
-    else
-        return (-halfB -sqrt(discriminant)) / (2.0f*a);
-}
- */
+// NOTE(mevex): Global variables
 
-color GetRayColor(Ray& r, Sphere& s)
+color GetRayColor(Ray& r, Scene& scene, int depth)
 {
-    // TODO(mevex): Placeholder code for now
     HitRecord rec;
-    bool result = s.Hit(r, 0.01f, 100.0f, rec);
+    bool result = scene.Hit(r, 0.0001f, 100.0f, rec);
+    
+    
+    if(depth <= 0)
+        return color(0,0,0);
+    
     
     if(result)
     {
-        return 0.5f * (rec.normal + color(1,1,1));
+        p3 target = rec.p + rec.normal + v3::RandomInUnitSphere();
+        Ray newR(rec.p, target);
+        return 0.5f * GetRayColor(newR, scene, depth-1);
+        
     }
     v3 unitDir = Unit(r.direction);
     rec.t = 0.5f*(unitDir.y + 1.0f);
@@ -35,23 +26,37 @@ color GetRayColor(Ray& r, Sphere& s)
 
 int main()
 {
+    srand ((u32)time(NULL));
+    
+    int samplePerPixel = 100;
+    int maxDepth = 50;
+    
     Canvas canvas(1280, 720, 4);
     Camera camera(2.0f, canvas.ratio, v3(0,0,0));
-    Sphere s(p3(0,0,-1), 0.5f);
+    Scene scene;
+    
+    // NOTE(mevex): Scene creation
+    Sphere s1(p3(0,0,-1), 0.5f);
+    Sphere s2(p3(0,-100.5,-1), 100);
+    scene.Add(&s1);
+    scene.Add(&s2);
     
     for(int y = canvas.height-1; y >= 0; y--)
     {
-        printf("\rProgress: %i%% line %i/%i", (int)((f32)y/(f32)canvas.height*100.99f), y+1, canvas.height);
+        printf("\rProgress: %i%% lines remaining %i/%i", (int)((f32)(canvas.height-y)/(f32)canvas.height*100.99f), y+1, canvas.height);
         for(int x = 0; x < canvas.width; x++)
         {
-            f32 u = (f32)x / (f32)(canvas.width - 1);
-            f32 v = (f32)y / (f32)(canvas.height - 1);
-            
-            v3 rayDirection = camera.vpLowerLeftCorner + u*camera.vpHorizontal + v*camera.vpVertical - camera.position;
-            Ray r(camera.position, rayDirection);
-            color c = GetRayColor(r, s);
-            
-            canvas.SetPixel(x, y, c);
+            color c(0,0,0);
+            for(int i = 0; i < samplePerPixel; i++)
+            {
+                f32 u = ((f32)x + RandomFloat()) / (f32)(canvas.width - 1);
+                f32 v = ((f32)y + RandomFloat()) / (f32)(canvas.height - 1);
+                
+                Ray r = camera.GetRay(u, v);
+                c += GetRayColor(r, scene, maxDepth);
+                
+            }
+            canvas.SetPixel(x, y, c, samplePerPixel);
         }
     }
     
