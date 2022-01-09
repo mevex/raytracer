@@ -4,12 +4,15 @@
 #include "ray.h"
 #include "v3.h"
 
+class Material;
+
 struct HitRecord
 {
     p3 p;
     v3 normal;
     f32 t;
     bool frontFace;
+    Material *material;
     
     inline void SetFaceNormal(Ray& r, v3& outNormal)
     {
@@ -29,8 +32,9 @@ class Sphere : public Hittable {
     
     p3 center;
     f32 radius;
+    Material *material;
     
-    Sphere(p3 cen = {0,0,0}, f32 r = 0) : center(cen), radius(r) {}
+    Sphere(p3 cen = {0,0,0}, f32 r = 0, Material *m = 0) : center(cen), radius(r), material(m) {}
     
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec)
     {
@@ -57,6 +61,7 @@ class Sphere : public Hittable {
         rec.t = root;
         v3 outNormal = (rec.p - center) / radius;
         rec.SetFaceNormal(r, outNormal);
+        rec.material = material;
         
         return true;
     }

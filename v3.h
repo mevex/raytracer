@@ -47,12 +47,22 @@ class v3
     
     shared_function v3 RandomInUnitSphere()
     {
+        // NOTE(mevex): This MUST be a sphere to achieve the correct distribution
         while(true)
         {
             v3 p = Random(-1, 1);
             if(p.LengthSquared() <= 1)
                 return p;
         }
+    }
+    
+    inline shared_function v3 RandomUnitVector();
+    
+    inline bool NearZero() 
+    {
+        f32 zero = 1e-6f;
+        bool result = (fabs(e[0]) < zero) && (fabs(e[1]) < zero) && (fabs(e[2]) < zero);
+        return result;
     }
     
     inline v3& operator+= (v3& v)
@@ -96,6 +106,11 @@ inline v3 operator* (v3 v, f32 t)
     return result;
 }
 
+inline v3 operator* (v3 v, v3 u)
+{
+    v3 result = v3(v.e[0] * u.e[0], v.e[1] * u.e[1], v.e[2] * u.e[2]);
+    return result;
+}
 
 inline v3 operator* (f32 t, v3 v)
 {
@@ -130,7 +145,19 @@ inline v3  Unit(v3& v)
     return result;
 }
 
+inline v3 Reflect(v3& v, v3& n)
+{
+    v3 result = v -2.0f*Dot(n, v)*n;
+    return result;
+}
+
+inline v3 v3::RandomUnitVector()
+{
+    v3 result = Unit(RandomInUnitSphere());
+    return result;
+}
+
 typedef v3 p3;
-typedef v3 color;
+typedef v3 Color;
 
 #endif //V3_H

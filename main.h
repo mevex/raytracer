@@ -57,6 +57,7 @@ inline f32 RandomFloat(f32 min, f32 max)
 #include "v3.h"
 #include "ray.h"
 #include "hittable.h"
+#include "material.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb/stb_image_write.h"
@@ -101,12 +102,12 @@ class Canvas
         *pixel = 255<<24 | b << 16 | g << 8 | r;
     }
     
-    void SetPixel(i32 x, i32 y, color c)
+    void SetPixel(i32 x, i32 y, Color c)
     {
         SetPixel(x, y, c.r, c.g, c.b);
     }
     
-    void SetPixel(i32 x, i32 y, color c, int spp)
+    void SetPixel(i32 x, i32 y, Color c, int spp)
     {
         f32 scale = 1.0f / spp;
         c *= scale;
@@ -115,32 +116,34 @@ class Canvas
     
     ~Canvas()
     {
-        // NOTE(mevex): no need to free the memory since the canvas will be destroyed when the program closes
+        // NOTE(mevex): no need to free the memory since the canvas will be destroyed only when the program closes
     }
 };
 
 class Camera
 {
     public:
-    f32 vpWidth;
-    f32 vpHeight;
-    f32 focalLength;
-    
     p3 position;
-    //p3 direction;
+    
     v3 vpHorizontal;
     v3 vpVertical;
     p3 vpLowerLeftCorner;
     
-    Camera(f32 vph, f32 ratio, p3 pos)
+    Camera(p3 pos, v3 direction, v3 viewUp, f32 verticalFOV, f32 aspectRatio)
     {
-        vpHeight = vph;
-        vpWidth = ratio*vph;
-        focalLength = 1.0f;
+        f32 theta = DegreesToRadians(verticalFOV);
+        f32 h = tan(theta/2);
+        f32 vpHeight = 2.0f * h;
+        f32 vpWidth = vpHeight * aspectRatio;
+        f32 focalLength = 1.0f;
         
         position = pos;
-        vpHorizontal = {vpWidth, 0, 0};
-        vpVertical = {0, vpHeight, 0};
+        v3 w = Unit(position - direction);
+        v3 u = Unit(Cross(viewUp, w));
+        v3 v = Cross(w, u);
+        
+        vpHorizontal = v3(vpWidth, 0, 0);
+        vpVertical = v3(0, vpHeight, 0);
         vpLowerLeftCorner = position - vpHorizontal/2.f - vpVertical/2.f  - v3(0, 0, focalLength);
     }
     
@@ -165,6 +168,7 @@ class Scene
     
     void Add(Hittable *obj)
     {
+        // TODO(mevex): Modificare e rendere più facile da usare
         objects.push_back(obj);
     }
     
