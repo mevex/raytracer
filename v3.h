@@ -60,8 +60,7 @@ class v3
     
     inline bool NearZero() 
     {
-        f32 zero = 1e-6f;
-        bool result = (fabs(e[0]) < zero) && (fabs(e[1]) < zero) && (fabs(e[2]) < zero);
+        bool result = (fabs(e[0]) < ZERO) && (fabs(e[1]) < ZERO) && (fabs(e[2]) < ZERO);
         return result;
     }
     

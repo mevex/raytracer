@@ -1,6 +1,6 @@
-
 #include "main.h"
 // NOTE(mevex): Global variables
+#include <chrono>
 
 Color GetRayColor(Ray& r, Scene& scene, int depth)
 {
@@ -27,13 +27,14 @@ Color GetRayColor(Ray& r, Scene& scene, int depth)
 
 int main()
 {
+    auto timerStart = std::chrono::high_resolution_clock::now();
     srand ((u32)time(NULL));
     
-    int samplePerPixel = 100;
-    int maxDepth = 50;
+    int samplePerPixel = 8;
+    int maxDepth = 8;
     
     Canvas canvas(1280, 720, 4);
-    Camera camera(p3(0,0,0), v3(0,0,-1), v3(0,1,0), 90.0f, canvas.ratio);
+    Camera camera(p3(0,0,4), v3(0,0,-1), v3(0,1,0), 20.0f, canvas.ratio);
     Scene scene;
     
     // NOTE(mevex): Scene creation
@@ -43,14 +44,17 @@ int main()
     Metal right(Color(0.8f, 0.6f, 0.2f), 1.0f);
     //Material *materials[4] = {&m1, &m2, &m3, &m4};
     
-    Sphere s1(p3(0,-100.5,-1), 100, &ground);
-    Sphere s2(p3(0,0,-1), 0.5f, &center);
+    Plane p1(p3(0,-0.5f,0), v3(0,1,0), &ground);
+    //Sphere s1(p3(0,-100.5,-1), 100, &ground);
+    Sphere s2(p3(0,0,0), 0.5f, &center);
     Sphere s3(p3(-1,0,-1), 0.5f, &left);
     Sphere s4(p3(1,0,-1), 0.5f, &right);
-    scene.Add(&s1);
+    scene.Add(&p1);
     scene.Add(&s2);
     scene.Add(&s3);
     scene.Add(&s4);
+    
+    printf("Rendering starts!\n");
     
     for(int y = canvas.height-1; y >= 0; y--)
     {
@@ -71,10 +75,14 @@ int main()
         }
     }
     
+    auto timerFinish = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(timerFinish - timerStart);
+    auto count = duration.count();
     // NOTE(mevex): Pixel order: AABBGGRR
     auto res = stbi_write_png("../renders/render.png", canvas.width, canvas.height, canvas.bytesPerPixel, canvas.memory, 0);
     
-    printf("stop!");
+    printf("\nTime elapsed: %ims", (int)(duration.count()));
+    getchar();
     
     return 0;
 }

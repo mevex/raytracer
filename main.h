@@ -25,16 +25,19 @@ typedef u8 byte;
 
 #define Min(a, b) ((a) < (b) ? (a) : (b))
 #define Max(a, b) ((a) > (b) ? (a) : (b))
+#define Abs(a) ((a) < 0 ? -(a) : (a))
 
 #include <limits>
-#define infinity std::numeric_limits<float>::infinity()
-#define pi 3.1415926535897932385f
+#undef INFINITY
+#define INFINITY std::numeric_limits<float>::infinity()
+#define PI 3.1415926535897932385f
+#define ZERO 1e-6f
 
 // NOTE(mevex): Utility Functions
 
 inline f32 DegreesToRadians(f32 degrees)
 {
-    f32 result = degrees * pi / 180.0f;
+    f32 result = degrees * PI / 180.0f;
     return result;
 }
 
@@ -176,14 +179,15 @@ class Scene
     {
         bool result = false;
         f32 closestT = tMax;
+        HitRecord tmpRec = {};
         
         for(auto& obj : objects)
         {
-            // TODO(mevex): Make sure there is no need for a temp_rec
-            if(obj->Hit(r, tMin, closestT, rec))
+            if(obj->Hit(r, tMin, closestT, tmpRec) && tmpRec.frontFace)
             {
                 result = true;
-                closestT = rec.t;
+                closestT = tmpRec.t;
+                rec = tmpRec;
             }
         }
         
