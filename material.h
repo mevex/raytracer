@@ -53,4 +53,26 @@ class Metal : public Material
     }
 };
 
+class VertexColor : public Material
+{
+    public:
+    
+    Color a,b,c;
+    
+    VertexColor(Color c1, Color c2, Color c3) : a(c1), b(c2), c(c3) {}
+    
+    virtual bool scatter(Ray& rIn, HitRecord& rec, Color& attenuation, Ray& scattered) override
+    {
+        // NOTE(mevex): This material scatters like a Lambertian but returns the color based on the barycentric coordinates of the triangle
+        p3 scatterDirection = rec.normal + v3::RandomUnitVector();
+        // NOTE(mevex): If RandomUnitVector() returns a vector that is the opposite of the normal
+        if(scatterDirection.NearZero())
+            scatterDirection = rec.normal;
+        
+        scattered = {rec.p, scatterDirection};
+        attenuation = rec.u*a + rec.v*b + rec.w*c;
+        return true;
+    }
+};
+
 #endif //MATERIAL_H

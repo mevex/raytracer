@@ -14,10 +14,19 @@ struct HitRecord
     bool frontFace;
     Material *material;
     
+    f32 u,v,w;
+    
     inline void SetFaceNormal(Ray& r, v3& outNormal)
     {
         frontFace = Dot(r.direction, outNormal) < 0;
         normal = frontFace ? outNormal : -outNormal;
+    }
+    
+    inline void SetBarycentrics(f32 U, f32 V)
+    {
+        w = 1.0f - U - V;
+        this->u = U;
+        this->v = V;
     }
 };
 
@@ -82,8 +91,7 @@ class Plane : public Hittable
     {
         // NOTE(mevex): If the dot product is > 0 then normal is facing away from the ray so we hit the "back face" a.k.a. not worth proceding
         f32 denom = Dot(r.direction, normal);
-        // TODO(mevex): Performance test with multiple planes
-        if(Abs(denom) < ZERO)// || denom > 0)
+        if(Abs(denom) < ZERO || denom > 0)
             return false;
         
         f32 num = Dot((point - r.origin), normal);
@@ -96,6 +104,73 @@ class Plane : public Hittable
         rec.t = t;
         rec.SetFaceNormal(r, normal);
         rec.material = material;
+        
+        return true;
+    }
+};
+
+class Triangle : public Hittable
+{
+    public:
+    
+    p3 a,b,c;
+    v3 normal;
+    f32 triangleAreaDoubled;
+    v3 ab, bc, ca;
+    
+    Material *material;
+    
+    Triangle(p3 v0, p3 v1, p3 v2, Material *m) : a(v0), b(v1), c(v2), material(m)
+    {
+        normal = Cross((b-a), (c-a));
+        triangleAreaDoubled = normal.Length();
+        ab = b-a;
+        bc = c-b;
+        ca = a-c;
+    }
+    
+    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
+    {
+        // NOTE(mevex): Triangle-plane intersection
+        f32 denom = Dot(r.direction, normal);
+        if(Abs(denom) < ZERO || denom > 0)
+            return false;
+        
+        f32 num = Dot((a - r.origin), normal);
+        f32 t = num / denom;
+        
+        if(t < tMin || t > tMax)
+            return false;
+        // NOTE(mevex): Inside-outside test
+        p3 p = r.At(t);
+        v3 N;
+        
+        v3 ap = p-a;
+        N = Cross(ab, ap);
+        if(Dot(normal, N) < 0)
+            return false;
+        
+        v3 bp = p-b;
+        N = Cross(bc, bp);
+        f32 uAreaDoubled = N.Length();
+        if(Dot(normal, N) < 0)
+            return false;
+        
+        v3 cp = p-c;
+        N = Cross(ca, cp);
+        f32 vAreaDoubled = N.Length();
+        if(Dot(normal, N) < 0)
+            return false;
+        
+        // NOTE(mevex): Barycentric coordinates
+        f32 u = uAreaDoubled / triangleAreaDoubled;
+        f32 v = vAreaDoubled / triangleAreaDoubled;
+        
+        rec.p = p;
+        rec.t = t;
+        rec.SetFaceNormal(r, normal);
+        rec.material = material;
+        rec.SetBarycentrics(u, v);
         
         return true;
     }

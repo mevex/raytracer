@@ -1,6 +1,6 @@
 @echo off
 
-set compilerFlags=-std:c++17 -EHsc -Od -Oi -Zi -nologo -FC -WX -W4 -wd4100 -wd4189 -wd4239 -wd4201 -wd4505 -wd4702 -wd4700
+set compilerFlags=-std:c++17 -EHsc -Odi -Zi -nologo -FC -WX -W4 -wd4100 -wd4189 -wd4239 -wd4201 -wd4505 -wd4702 -wd4700
 
 pushd ..\build
 
