@@ -90,13 +90,13 @@ int main()
     
     auto timerFinish = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(timerFinish - timerStart);
-    //auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(timerFinish - timerStart);
-    auto avgCount = duration.count() / (canvas.width * canvas.height);
+    auto avgCount = std::chrono::duration_cast<std::chrono::nanoseconds>(timerFinish - timerStart).count() / (canvas.width * canvas.height);
     
     // NOTE(mevex): Pixel order: AABBGGRR
     auto res = stbi_write_png("../renders/render.png", canvas.width, canvas.height, canvas.bytesPerPixel, canvas.memory, 0);
     
-    printf("\nTime elapsed: %ims", (int)(duration.count()));
+    printf("\nRendering time: %ims", (int)(duration.count()));
+    printf("\nAverage pixel time: %ins", (int)avgCount);
     getchar();
     
     return 0;

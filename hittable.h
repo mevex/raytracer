@@ -116,21 +116,59 @@ class Triangle : public Hittable
     p3 a,b,c;
     v3 normal;
     f32 triangleAreaDoubled;
+    v3 edge1, edge2;
     v3 ab, bc, ca;
     
     Material *material;
     
     Triangle(p3 v0, p3 v1, p3 v2, Material *m) : a(v0), b(v1), c(v2), material(m)
     {
-        normal = Cross((b-a), (c-a));
+        edge1 = b - a;
+        edge2 = c - a;
+        normal = Cross(edge1, edge2);
         triangleAreaDoubled = normal.Length();
+        
+        // NOTE(mevex): This are used for the non MOLLER_TRUMBORE implementation
         ab = b-a;
         bc = c-b;
         ca = a-c;
     }
     
+#define MOLLER_TRUMBORE 1
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
     {
+        // NOTE(mevex): The function culls backfaces
+#if MOLLER_TRUMBORE
+        // NOTE(mevex): See scratchpixel's explanation of the algorithm for details on how it works and the variable names
+        
+        v3 T = r.origin - a;
+        
+        v3 P = Cross(r.direction, edge2);
+        v3 Q = Cross(T, edge1);
+        
+        f32 determinant = Dot(P, edge1);
+        // NOTE(mevex): if the triangle and the ray are parallel (therefore there is no intersection) or if the triangle is backfacing the ray
+        // NOTE(mevex): The determinand is equal to -Dot(r.direction, normal), so the condition can be simplified like this
+        if(determinant < ZERO)
+            return false;
+        
+        f32 inverseDet = 1.0f / determinant;
+        
+        f32 u = Dot(P, T) * inverseDet;
+        f32 v = Dot(Q, r.direction) * inverseDet;
+        if(u < 0 || v < 0 || u+v > 1)
+            return false;
+        
+        f32 t = Dot(Q, edge2) * inverseDet;
+        
+        rec.p = r.At(t);
+        rec.t = t;
+        rec.SetFaceNormal(r, normal);
+        rec.material = material;
+        rec.SetBarycentrics(u, v);
+        
+        return true;
+#else
         // NOTE(mevex): Triangle-plane intersection
         f32 denom = Dot(r.direction, normal);
         if(Abs(denom) < ZERO || denom > 0)
@@ -173,6 +211,7 @@ class Triangle : public Hittable
         rec.SetBarycentrics(u, v);
         
         return true;
+#endif
     }
 };
 
