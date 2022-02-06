@@ -1,4 +1,4 @@
-# Ray Tracer
+0# Ray Tracer
 This is a simple ray tracer I am making as a project for my BSc thesis about 3D rendering
 
 ## External resources
@@ -14,4 +14,5 @@ This is the default folder for the project
 |--|--|
 |build  |all the build files will be created here|
 |code   |the source code (a.k.a. this repo) will be located here|
-|renders|the rendered image will be located here named "render.png"|
+|renders|the rendered images will be created here named "render.png"|
+|models |all the available models will be stored here|

@@ -5,6 +5,7 @@
 #include "v3.h"
 
 class Material;
+class Lambertian;
 
 struct HitRecord
 {
@@ -75,6 +76,17 @@ class Sphere : public Hittable
         
         return true;
     }
+    
+    bool SimpleHit(Ray& r, f32 tMin, f32 tMax)
+    {
+        v3 oc = r.origin - center;
+        f32 a = r.direction.LengthSquared();
+        f32 halfB = Dot(oc, r.direction);
+        f32 c = oc.LengthSquared() - radius*radius;
+        
+        f32 discriminant = halfB*halfB - a*c;
+        return discriminant > 0;
+    }
 };
 
 class Plane : public Hittable
@@ -115,18 +127,15 @@ class Triangle : public Hittable
     
     p3 a,b,c;
     v3 normal;
-    f32 triangleAreaDoubled;
-    v3 edge1, edge2;
     v3 ab, bc, ca;
     
     Material *material;
     
     Triangle(p3 v0, p3 v1, p3 v2, Material *m) : a(v0), b(v1), c(v2), material(m)
     {
-        edge1 = b - a;
-        edge2 = c - a;
+        v3 edge1 = b - a;
+        v3 edge2 = c - a;
         normal = Cross(edge1, edge2);
-        triangleAreaDoubled = normal.Length();
         
         // NOTE(mevex): This are used for the non MOLLER_TRUMBORE implementation
         ab = b-a;
@@ -134,7 +143,14 @@ class Triangle : public Hittable
         ca = a-c;
     }
     
-#define MOLLER_TRUMBORE 1
+    Triangle(p3 v0, p3 v1, p3 v2, v3 n, Material *m) : a(v0), b(v1), c(v2), normal(n), material(m)
+    {
+        // NOTE(mevex): This are used for the non MOLLER_TRUMBORE implementation
+        ab = b-a;
+        bc = c-b;
+        ca = a-c;
+    }
+    
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
     {
         // NOTE(mevex): The function culls backfaces
@@ -149,7 +165,7 @@ class Triangle : public Hittable
         f32 determinant = Dot(P, edge1);
         // NOTE(mevex): if the triangle and the ray are parallel (therefore there is no intersection) or if the triangle is backfacing the ray
         // NOTE(mevex): The determinand is equal to -Dot(r.direction, normal), so the condition can be simplified like this
-        if(determinant < ZERO)
+        if(determinant < 0)
             return false;
         
         f32 inverseDet = 1.0f / determinant;
@@ -201,6 +217,7 @@ class Triangle : public Hittable
             return false;
         
         // NOTE(mevex): Barycentric coordinates
+        f32 triangleAreaDoubled = normal.Length();
         f32 u = uAreaDoubled / triangleAreaDoubled;
         f32 v = vAreaDoubled / triangleAreaDoubled;
         
@@ -212,6 +229,57 @@ class Triangle : public Hittable
         
         return true;
 #endif
+    }
+};
+
+class Mesh : public Hittable
+{
+    public:
+    
+    p3 position;
+    Sphere boundingSphere;
+    
+    vector<Lambertian> materials;
+    vector<Triangle> triangles;
+    
+    Mesh(p3 p, p3 relSpherePos, f32 sphereRadius) : position(p)
+    {
+        boundingSphere = Sphere(relSpherePos + position, sphereRadius);
+    }
+    
+    void AddTriangle(Triangle t)
+    {
+        t.a += position;
+        t.b += position;
+        t.c += position;
+        triangles.push_back(t);
+    }
+    
+    void AddMaterial(Lambertian &m)
+    {
+        materials.push_back(m);
+    }
+    
+    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
+    {
+        bool result = false;
+        f32 closestT = tMax;
+        HitRecord tmpRec = {};
+        
+        if(!boundingSphere.SimpleHit(r, tMin, closestT))
+            return false;
+        
+        for(Triangle t : triangles)
+        {
+            if(t.Hit(r, tMin, closestT, tmpRec))
+            {
+                result = true;
+                closestT = tmpRec.t;
+                rec = tmpRec;
+            }
+        }
+        
+        return result;
     }
 };
 

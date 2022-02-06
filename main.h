@@ -56,6 +56,8 @@ inline f32 RandomFloat(f32 min, f32 max)
     return result;
 }
 
+#include <vector>
+using std::vector;
 
 #include "v3.h"
 #include "ray.h"
@@ -63,11 +65,10 @@ inline f32 RandomFloat(f32 min, f32 max)
 #include "material.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
-#include "stb/stb_image_write.h"
+#include "external/stb_image_write.h"
 
-#include <vector>
-using std::vector;
-
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "external/tiny_obj_loader.h"
 
 class Canvas
 {
@@ -166,12 +167,12 @@ class Scene
     
     Scene()
     {
-        // TODO(mevex): Aggiungere cose?
+        // TODO(mevex): What to do?
+        // TODO(mevex): Modificare e rendere più facile da usare
     }
     
     void Add(Hittable *obj)
     {
-        // TODO(mevex): Modificare e rendere più facile da usare
         objects.push_back(obj);
     }
     
