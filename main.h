@@ -26,6 +26,7 @@ typedef u8 byte;
 #define Min(a, b) ((a) < (b) ? (a) : (b))
 #define Max(a, b) ((a) > (b) ? (a) : (b))
 #define Abs(a) ((a) < 0 ? -(a) : (a))
+#define Lerp(a, b, t) (1.0f-(t))*(a) + (t)*(b)
 
 #include <limits>
 #undef INFINITY
@@ -63,6 +64,7 @@ using std::vector;
 #include "ray.h"
 #include "hittable.h"
 #include "material.h"
+#include "light.h"
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "external/stb_image_write.h"
@@ -133,22 +135,21 @@ class Camera
     v3 vpVertical;
     p3 vpLowerLeftCorner;
     
-    Camera(p3 pos, v3 direction, v3 viewUp, f32 verticalFOV, f32 aspectRatio)
+    Camera(p3 pos, v3 lookAt, v3 viewUp, f32 verticalFOV, f32 aspectRatio)
     {
         f32 theta = DegreesToRadians(verticalFOV);
         f32 h = tan(theta/2);
         f32 vpHeight = 2.0f * h;
         f32 vpWidth = vpHeight * aspectRatio;
-        f32 focalLength = 1.0f;
         
         position = pos;
-        v3 w = Unit(position - direction);
+        v3 w = Unit(position - lookAt);
         v3 u = Unit(Cross(viewUp, w));
         v3 v = Cross(w, u);
         
-        vpHorizontal = v3(vpWidth, 0, 0);
-        vpVertical = v3(0, vpHeight, 0);
-        vpLowerLeftCorner = position - vpHorizontal/2.f - vpVertical/2.f  - v3(0, 0, focalLength);
+        vpHorizontal = vpWidth * u;
+        vpVertical = vpHeight * v;
+        vpLowerLeftCorner = position - vpHorizontal/2.f - vpVertical/2.f - w;
     }
     
     inline Ray GetRay(f32 u, f32 v)
@@ -164,6 +165,8 @@ class Scene
     public:
     
     vector<Hittable *> objects;
+    vector<Light *> lights;
+    int ambientLightIndex;
     
     Scene()
     {
@@ -171,9 +174,14 @@ class Scene
         // TODO(mevex): Modificare e rendere più facile da usare
     }
     
-    void Add(Hittable *obj)
+    inline void Add(Hittable *obj)
     {
         objects.push_back(obj);
+    }
+    
+    inline void Add(Light *l)
+    {
+        lights.push_back(l);
     }
     
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec)
@@ -193,6 +201,30 @@ class Scene
         }
         
         return result;
+    }
+    
+    f32 GetLightIntensity(v3 normal, p3 hitPoint)
+    {
+        f32 intensity = 0;
+        
+        for(auto &l : lights)
+        {
+            if(l->type == POINT)
+            {
+                PointLight *light = (PointLight *)l;
+                Ray lightRay(hitPoint, light->position);
+                HitRecord rec;
+                
+                Hit(lightRay, ZERO, 1, rec);
+                
+                if(!(rec.t > 0 && rec.t < 1))
+                    intensity += l->ComputeLightning(normal, hitPoint);
+            }
+            else
+                intensity += l->ComputeLightning(normal, hitPoint);
+        }
+        
+        return intensity;
     }
 };
 
