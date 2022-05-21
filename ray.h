@@ -12,7 +12,7 @@ class Ray
     
     Ray(v3 o = {0,0,0}, v3 d = {0,0,0}) : origin(o), direction(d) {}
     
-    p3 At(f32 t)
+    inline p3 At(f32 t)
     {
         p3 result = origin + t*direction;
         return result;

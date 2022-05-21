@@ -10,6 +10,8 @@ enum LightType
     POINT
 };
 
+// TODO(mevex): Implement colors for lights
+// TODO(mevex): Maybe add directional light?
 class Light
 {
     public:
@@ -36,8 +38,8 @@ class PointLight : public Light
         
         v3 light = position - hitPoint;
         f32 nDotL = Dot(normal, light);
-        if(nDotL > 0)
-            finalIntensity = intensity * nDotL / (normal.Length() * light.Length());
+        f32 iDivA = nDotL / (normal.Length() * light.Length());
+        finalIntensity = intensity * iDivA;
         
         return finalIntensity;
     }
@@ -48,17 +50,13 @@ class AmbientLight : public Light
     public:
     
     f32 intensity;
-    Color color;
     
     AmbientLight(f32 i) : intensity(i)
     {
         type = AMBIENT;
-        color = {i,i,i};
     }
     
-    AmbientLight(f32 i, Color c) : intensity(i), color(c) {}
-    
-    f32 ComputeLightning(v3 normal, p3 hitPoint)
+    inline f32 ComputeLightning(v3 normal, p3 hitPoint)
     {
         return intensity;
     }

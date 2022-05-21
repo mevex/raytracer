@@ -49,10 +49,10 @@ class Sphere : public Hittable
     
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
     {
-        v3 oc = r.origin - center;
+        v3 co = r.origin - center;
         f32 a = r.direction.LengthSquared();
-        f32 halfB = Dot(oc, r.direction);
-        f32 c = oc.LengthSquared() - radius*radius;
+        f32 halfB = Dot(co, r.direction);
+        f32 c = co.LengthSquared() - radius*radius;
         
         f32 discriminant = halfB*halfB - a*c;
         if(discriminant < 0)
@@ -101,9 +101,8 @@ class Plane : public Hittable
     
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
     {
-        // NOTE(mevex): If the dot product is > 0 then normal is facing away from the ray so we hit the "back face" a.k.a. not worth proceding
         f32 denom = Dot(r.direction, normal);
-        if(Abs(denom) < ZERO || denom > 0)
+        if(Abs(denom) <= ZERO)
             return false;
         
         f32 num = Dot((point - r.origin), normal);
@@ -126,15 +125,18 @@ class Triangle : public Hittable
     public:
     
     p3 a,b,c;
+    v3 edge1;
+    v3 edge2;
     v3 normal;
+    
     v3 ab, bc, ca;
     
     Material *material;
     
-    Triangle(p3 v0, p3 v1, p3 v2, Material *m) : a(v0), b(v1), c(v2), material(m)
+    Triangle(p3 v0, p3 v1, p3 v2, Material *m) : a(v0), b(v1), c(v2),  material(m)
     {
-        v3 edge1 = b - a;
-        v3 edge2 = c - a;
+        edge1 = b - a;
+        edge2 = c - a;
         normal = Cross(edge1, edge2);
         
         // NOTE(mevex): This are used for the non MOLLER_TRUMBORE implementation
@@ -143,17 +145,9 @@ class Triangle : public Hittable
         ca = a-c;
     }
     
-    Triangle(p3 v0, p3 v1, p3 v2, v3 n, Material *m) : a(v0), b(v1), c(v2), normal(n), material(m)
-    {
-        // NOTE(mevex): This are used for the non MOLLER_TRUMBORE implementation
-        ab = b-a;
-        bc = c-b;
-        ca = a-c;
-    }
-    
+#define MOLLER_TRUMBORE 1
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
     {
-        // NOTE(mevex): The function culls backfaces
 #if MOLLER_TRUMBORE
         // NOTE(mevex): See scratchpixel's explanation of the algorithm for details on how it works and the variable names
         
@@ -164,8 +158,7 @@ class Triangle : public Hittable
         
         f32 determinant = Dot(P, edge1);
         // NOTE(mevex): if the triangle and the ray are parallel (therefore there is no intersection) or if the triangle is backfacing the ray
-        // NOTE(mevex): The determinand is equal to -Dot(r.direction, normal), so the condition can be simplified like this
-        if(determinant < 0)
+        if(Abs(determinant) <= ZERO)
             return false;
         
         f32 inverseDet = 1.0f / determinant;
@@ -176,6 +169,8 @@ class Triangle : public Hittable
             return false;
         
         f32 t = Dot(Q, edge2) * inverseDet;
+        if(t < tMin || t > tMax)
+            return false;
         
         rec.p = r.At(t);
         rec.t = t;
@@ -185,6 +180,7 @@ class Triangle : public Hittable
         
         return true;
 #else
+        // TODO(mevex): This code is broken
         // NOTE(mevex): Triangle-plane intersection
         f32 denom = Dot(r.direction, normal);
         if(Abs(denom) < ZERO || denom > 0)

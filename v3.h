@@ -23,6 +23,7 @@ class v3
     
     inline f32 LengthSquared()
     {
+        // NOTE(mevex): Dot product of the vector with itself
         f32 result = e[0]*e[0] + e[1]*e[1] + e[2]*e[2];
         return result;
     }
@@ -152,7 +153,7 @@ inline v3 Reflect(v3& v, v3& n)
 
 inline v3 v3::RandomUnitVector()
 {
-    v3 result = Unit(RandomInUnitSphere());
+    v3 result = Unit(Random());
     return result;
 }
 

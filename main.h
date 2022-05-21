@@ -25,6 +25,7 @@ typedef u8 byte;
 
 #define Min(a, b) ((a) < (b) ? (a) : (b))
 #define Max(a, b) ((a) > (b) ? (a) : (b))
+#define Clamp(n, min, max) Max(Min((n), (max)), (min))
 #define Abs(a) ((a) < 0 ? -(a) : (a))
 #define Lerp(a, b, t) (1.0f-(t))*(a) + (t)*(b)
 
@@ -160,19 +161,11 @@ class Camera
     }
 };
 
-class Scene
+struct Scene
 {
-    public:
-    
     vector<Hittable *> objects;
     vector<Light *> lights;
     int ambientLightIndex;
-    
-    Scene()
-    {
-        // TODO(mevex): What to do?
-        // TODO(mevex): Modificare e rendere più facile da usare
-    }
     
     inline void Add(Hittable *obj)
     {
@@ -203,22 +196,36 @@ class Scene
         return result;
     }
     
+    bool Hit(Ray& r, f32 tMin, f32 tMax)
+    {
+        HitRecord dummyRec = {};
+        for(auto& obj : objects)
+        {
+            if(obj->Hit(r, tMin, tMax, dummyRec))
+            {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
     f32 GetLightIntensity(v3 normal, p3 hitPoint)
     {
         f32 intensity = 0;
         
-        for(auto &l : lights)
+        for(auto l : lights)
         {
             if(l->type == POINT)
             {
                 PointLight *light = (PointLight *)l;
                 Ray lightRay(hitPoint, light->position);
-                HitRecord rec;
                 
-                Hit(lightRay, ZERO, 1, rec);
-                
-                if(!(rec.t > 0 && rec.t < 1))
-                    intensity += l->ComputeLightning(normal, hitPoint);
+                if(Dot(normal, (lightRay.direction - lightRay.origin)) >= 0)
+                {
+                    if(!Hit(lightRay, ZERO, 1.001f))
+                        intensity += l->ComputeLightning(normal, hitPoint);
+                }
             }
             else
                 intensity += l->ComputeLightning(normal, hitPoint);

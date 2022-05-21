@@ -1,14 +1,8 @@
 #include "main.h"
 #include <chrono>
 
-// NOTE(mevex): Global
-#define MOLLER_TRUMBORE 1
-
 Color GetRayColor(Ray& r, Scene& scene, int depth)
 {
-    HitRecord rec;
-    bool result = scene.Hit(r, 0.0001f, 100.0f, rec);
-    
     // NOTE(mevex): Background/ambient light hack
     v3 unitDir = Unit(r.direction);
     f32 t = 0.5f*(unitDir.y + 1.0f);
@@ -17,16 +11,20 @@ Color GetRayColor(Ray& r, Scene& scene, int depth)
     if(depth <= 0)
         return falseAmbientColor;
     
-    if(result)
+    HitRecord rec;
+    bool hitResult = scene.Hit(r, ZERO, INFINITY, rec);
+    
+    if(hitResult)
     {
+        // NOTE(mevex): If the light intensity exceeds 1 we get an overexposed color
+        f32 lightIntensity = Min(scene.GetLightIntensity(rec.normal, rec.p), 1.0f);
+        
         Ray scattered;
         Color attenuation;
-        if(rec.material->scatter(r, rec, attenuation, scattered))
-        {
-            f32 lightIntensity = Min(scene.GetLightIntensity(rec.normal, rec.p), 1.0f);
+        if(rec.material->Scatter(r, rec, attenuation, scattered))
             return attenuation * lightIntensity * GetRayColor(scattered, scene, depth-1);
-        }
-        return Color(0,0,0);
+        else
+            return attenuation * lightIntensity;
     }
     
     return falseAmbientColor;
@@ -97,8 +95,8 @@ int main()
 {
     srand ((u32)time(NULL));
     
-    int samplePerPixel = 16;
-    int maxDepth = 4;
+    int samplePerPixel = 200;
+    int maxDepth = 20;
     
     Canvas canvas(1280, 720, 4);
     //Camera camera(p3(3,9,12), p3(0.5f,3.7f,0), v3(0,1,0), 55, canvas.ratio);
@@ -110,14 +108,14 @@ int main()
     Lambertian ground(Color(0.8f, 0.8f, 0.0f));
     Lambertian center(Color(0.7f, 0.3f, 0.3f));
     Metal left(Color(0.8f, 0.8f, 0.8f), 0.3f);
-    Metal right(Color(0.8f, 0.6f, 0.2f), 1.0f);
+    Metal right(Color(0.05f, 0.6f, 0.73f), 0.0f);
     VertexColor tri(Color(1,0,0), Color(0,1,0), Color(0,0,1));
     
     // NOTE(mevex): Objects
     Plane p1(p3(0,-0.5f,0), v3(0,1,0), &ground);//-4.1139f
-    Sphere s2(p3(0,0,-1), 0.5f, &center);//-3.6139f
-    Sphere s3(p3(-1,0,-1), 0.5f, &left);
-    Sphere s4(p3(1,0,-1), 0.5f, &right);
+    Sphere s2(p3(-5 ,1.5f, 1), 2.0f, &right);//-3.6139f
+    //Sphere s3(p3(-1,0,-1), 0.5f, &left);
+    //Sphere s4(p3(1,0,-1), 0.5f, &right);
     //Triangle t5(p3(-1,1,-2), p3(1,1,-2), p3(0,2,-1), &tri);
     
     Mesh fox(p3(0,3.65f,0), p3(-0.8f, 0, 0), 7.4f); // r = 7.4f
@@ -128,11 +126,10 @@ int main()
     AmbientLight l2(0.3f);
     
     scene.Add(&p1);
-    //scene.Add(&s2);
+    scene.Add(&s2);
     //scene.Add(&s3);
     //scene.Add(&s4);
     scene.Add(&fox);
-    //scene.Add(&t5);
     scene.Add(&l1);
     scene.Add(&l2);
     
