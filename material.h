@@ -21,6 +21,9 @@ class Lambertian : public Material
     
     bool Scatter(Ray& rIn, HitRecord& rec, Color& attenuation, Ray& scattered) override
     {
+        ++ScatterCounter;
+        u64 cycleBegin = __rdtsc();
+
         p3 scatterDirection = rec.normal + v3::RandomUnitVector();
         // NOTE(mevex): If RandomUnitVector() returns a vector that is the opposite of the normal
         if(scatterDirection.NearZero())
@@ -28,6 +31,9 @@ class Lambertian : public Material
         
         scattered = {rec.p, Unit(scatterDirection)};
         attenuation = albedo;
+
+        u64 cycleEnd = __rdtsc();
+        ScatterCycles += (u64)(cycleEnd - cycleBegin);
         return true;
     }
 };
@@ -43,12 +49,18 @@ class Metal : public Material
     
     bool Scatter(Ray& rIn, HitRecord& rec, Color& attenuation, Ray& scattered) override
     {
+        ++ScatterCounter;
+        u64 cycleBegin = __rdtsc();
+
         if(fuzz == 1.0f)
             attenuation = albedo;
         
         v3 reflected = Reflect(rIn.direction, rec.normal) + fuzz*v3::RandomUnitVector();
         scattered = {rec.p, reflected};
         attenuation = albedo;
+
+        u64 cycleEnd = __rdtsc();
+        ScatterCycles += cycleEnd - cycleBegin;
         return (Dot(scattered.direction, rec.normal) > 0);
     }
 };
@@ -64,6 +76,9 @@ class VertexColor : public Material
     
     bool Scatter(Ray& rIn, HitRecord& rec, Color& attenuation, Ray& scattered) override
     {
+        ++ScatterCounter;
+        u64 cycleBegin = __rdtsc();
+
         // NOTE(mevex): This material scatters like a Lambertian but returns the color based on the barycentric coordinates of the triangle
         p3 scatterDirection = rec.normal + v3::RandomUnitVector();
         // NOTE(mevex): If RandomUnitVector() returns a vector that is the opposite of the normal
@@ -72,6 +87,9 @@ class VertexColor : public Material
         
         scattered = {rec.p, scatterDirection};
         attenuation = rec.u*a + rec.v*b + rec.w*c;
+
+        u64 cycleEnd = __rdtsc();
+        ScatterCycles += cycleEnd - cycleBegin;
         return true;
     }
 };

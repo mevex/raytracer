@@ -1,6 +1,7 @@
 #ifndef V3_H
 #define V3_H
 
+#include "simd.h"
 #include <cmath>
 
 class v3
@@ -8,6 +9,7 @@ class v3
     public:
     union
     {
+        wide_f32 packedArray;
         f32 e[3];
         struct
         {
@@ -84,7 +86,8 @@ class v3
 
 inline v3 operator+ (v3& v, v3& w)
 {
-    v3 result = v3(v.e[0] + w.e[0], v.e[1] + w.e[1], v.e[2] + w.e[2]);
+    v3 result;
+    result.packedArray = WideFloatAdd(v.packedArray, w.packedArray);
     return result;
 }
 

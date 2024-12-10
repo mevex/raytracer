@@ -1,8 +1,87 @@
+unsigned long long GetRayColorCycles = 0;
+unsigned long long HitCycles = 0;
+unsigned long long ScatterCycles = 0;
+
+unsigned long long GetRayColorCounter = 0;
+unsigned long long HitCounter = 0;
+unsigned long long ScatterCounter = 0;
+
+#include <intrin.h>
+#include <cstdio>
 #include "main.h"
 #include <chrono>
 
+#define RUN_FAST 1
+Color GetRayColorFast(Ray rays[4], Scene& scene, int depth, Color falseAmbientColor)
+{
+    ++GetRayColorCounter;
+    u64 cycleBegin = __rdtsc();
+    // TODO(mevex): Move false ambient color and ray calculation here
+
+    if(depth <= 0)
+    {
+        return falseAmbientColor;
+    }
+
+    Color attenuations[4] = {falseAmbientColor, falseAmbientColor, falseAmbientColor, falseAmbientColor};
+    while (depth)
+    { 
+        HitRecord recs[4] = {};
+        f32 closestTs[4] = {INFINITY, INFINITY, INFINITY, INFINITY};
+        f32 tMin[4] = {ZERO, ZERO, ZERO, ZERO};
+
+        for (auto &obj : scene.objects)
+        {
+            HitRecord tempRecs[4] = {};
+            // obj->Hit(rays[0], ZERO, INFINITY, tempRec[0]);
+            obj->Hit(rays, tMin, closestTs, tempRecs);
+            for (int i = 0; i < 4; ++i)
+            {
+                if (tempRecs[i].t != INFINITY && tempRecs[i].t < recs[i].t)
+                {
+                	closestTs[i] = tempRecs[i].t;
+                    recs[i] = tempRecs[i];
+                }
+            }
+        }
+
+        for(int i = 0; i < 4; ++i)
+        {
+            if (recs[i].t != INFINITY) {
+                // NOTE(mevex): If the light intensity exceeds 1 we get an overexposed color
+                f32 lightIntensity = Min(scene.GetLightIntensity(recs[i].normal, recs[i].p), 1.0f);
+
+                Color newAttenuation;
+                if (recs[i].material->Scatter(rays[i], recs[i], newAttenuation, rays[i]))
+                {
+                    attenuations[i] = attenuations[i] * lightIntensity * newAttenuation;
+                }
+                else
+                {
+                    attenuations[i] = attenuations[i] * lightIntensity * newAttenuation;
+                    // NOTE(mevex): this is a bit of a hack to avoid testing this again
+                    recs[i].t = 0.0f;
+                }
+            }
+            else
+            {
+                break;
+            }
+        }
+        --depth;
+    }
+
+    u64 cycleEnd = __rdtsc();
+    GetRayColorCycles += cycleEnd - cycleBegin;
+
+    return attenuations[0] + attenuations[1] + attenuations[2] + attenuations[3];
+}
+
 Color GetRayColor(Ray& r, Scene& scene, int depth)
 {
+    ++GetRayColorCounter;
+    u64 cycleBegin = __rdtsc();
+
     // NOTE(mevex): Background/ambient light hack
     v3 unitDir = Unit(r.direction);
     f32 t = 0.5f*(unitDir.y + 1.0f);
@@ -27,6 +106,9 @@ Color GetRayColor(Ray& r, Scene& scene, int depth)
             return attenuation * lightIntensity;
     }
     
+    u64 cycleEnd = __rdtsc();
+    GetRayColorCycles += cycleEnd - cycleBegin;
+
     return falseAmbientColor;
 }
 
@@ -85,7 +167,7 @@ bool LoadObj(Mesh& mesh, const char* filename, const char* basepath = NULL, bool
     
     auto t2 = std::chrono::high_resolution_clock::now();
     auto d = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1);
-    printf("OBJ loading time: %ims", (int)(d.count()));
+    printf("OBJ loading time: %ims\n", (int)(d.count()));
     
     //getchar();
     return true;
@@ -95,8 +177,8 @@ int main()
 {
     srand ((u32)time(NULL));
     
-    int samplePerPixel = 200;
-    int maxDepth = 20;
+    int samplePerPixel = 8;
+    int maxDepth = 4;
     
     Canvas canvas(1280, 720, 4);
     //Camera camera(p3(3,9,12), p3(0.5f,3.7f,0), v3(0,1,0), 55, canvas.ratio);
@@ -133,26 +215,59 @@ int main()
     scene.Add(&l1);
     scene.Add(&l2);
     
-    printf("Rendering starts\n");
+    printf("--- Rendering starts ---\n");
     printf("Samples per pixel: %d Max depth: %d\n", samplePerPixel, maxDepth);
     auto timerStart = std::chrono::high_resolution_clock::now();
-    
+    auto cyclesStart = __rdtsc();
+
     for(int y = canvas.height-1; y >= 0; y--)
     {
-        printf("\rProgress: %i%% lines remaining %i/%i", (int)((f32)(canvas.height-y)/(f32)canvas.height*100.99f), y, canvas.height);
+#if RUN_FAST
+        f32 v = ((f32)y) / (f32)(canvas.height - 1);
+#endif
         for(int x = 0; x < canvas.width; x++)
         {
             Color c(0,0,0);
+
+#if RUN_FAST
+            f32 u = ((f32)x) / (f32)(canvas.width - 1);
+            Ray nonRandomizedRay = camera.GetRay(u, v);
+            // NOTE(mevex): Background/ambient light hack
+            v3 unitDir = Unit(nonRandomizedRay.direction);
+            f32 t = 0.5f * (unitDir.y + 1.0f);
+            Color falseAmbientColor = Lerp(Color(0.6f, 0.6f, 0.6f), Color(0.5f, 0.7f, 1.0f), t);
+#endif
+
+#if RUN_FAST
+            for(int sampleIndex = 0; sampleIndex < samplePerPixel; sampleIndex += 4)
+            {
+                Ray randomizedRays [4] = {};
+                // TODO(mevex): make this loop work properly
+                for (int i = 0; i < 4; ++i)
+                {
+                    u = ((f32)x + RandomFloat()) / (f32)(canvas.width - 1);
+                    v = ((f32)y + RandomFloat()) / (f32)(canvas.height - 1);
+                    randomizedRays[i] = camera.GetRay(u, v);
+                }
+
+                c += GetRayColorFast(randomizedRays, scene, maxDepth, falseAmbientColor);
+            }
+            // TODO(mevex): This is a temporary hack
+            canvas.SetPixel(x, y, c, (samplePerPixel % 4 == 0) ? samplePerPixel : (samplePerPixel / 4 + 1)*4);
+#else
             for(int i = 0; i < samplePerPixel; i++)
             {
                 f32 u = ((f32)x + RandomFloat()) / (f32)(canvas.width - 1);
                 f32 v = ((f32)y + RandomFloat()) / (f32)(canvas.height - 1);
-                
-                Ray r = camera.GetRay(u, v);
-                c += GetRayColor(r, scene, maxDepth);
+
+                Ray randomizedRay = camera.GetRay(u, v);
+                c += GetRayColor(randomizedRay, scene, maxDepth);
             }
             canvas.SetPixel(x, y, c, samplePerPixel);
+#endif
         }
+        auto cyclesFinish = __rdtsc();
+        printf("\rProgress: %i%%, lines remaining %i/%i, avg cycles per pixels: %llu", (int)((f32)(canvas.height-y)/(f32)canvas.height*100.99f), y, canvas.height, (u64)(cyclesFinish - cyclesStart)/(canvas.width*(canvas.height-y)));
     }
     
     auto timerFinish = std::chrono::high_resolution_clock::now();
@@ -162,8 +277,12 @@ int main()
     // NOTE(mevex): Pixel order: AABBGGRR
     auto res = stbi_write_png("../renders/render.png", canvas.width, canvas.height, canvas.bytesPerPixel, canvas.memory, 0);
     
-    printf("\nRendering time: %ims", (int)(duration.count()));
-    printf("\nAverage pixel time: %ins", (int)avgCount);
+    printf("\nRendering time: %ims\n", (int)(duration.count()));
+    printf("Average pixel time: %ins\n", (int)avgCount);
+
+    printf("GetRay Count:    %llu,  AVG Cycles: %llu \n", GetRayColorCounter, GetRayColorCycles / GetRayColorCounter);
+    printf("Hit Count:    %llu,  AVG Cycles: %llu \n", HitCounter, HitCycles / HitCounter);
+    printf("Scatter Count:    %llu,  AVG Cycles: %llu \n", ScatterCounter, ScatterCycles / ScatterCounter);
     
     getchar();
     return 0;

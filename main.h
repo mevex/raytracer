@@ -61,6 +61,8 @@ inline f32 RandomFloat(f32 min, f32 max)
 #include <vector>
 using std::vector;
 
+#include "simd.h"
+
 #include "v3.h"
 #include "ray.h"
 #include "hittable.h"
@@ -179,6 +181,9 @@ struct Scene
     
     bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec)
     {
+        ++HitCounter;
+        u64 cycleBegin = __rdtsc();
+
         bool result = false;
         f32 closestT = tMax;
         HitRecord tmpRec = {};
@@ -193,6 +198,8 @@ struct Scene
             }
         }
         
+        u64 cycleEnd = __rdtsc();
+        HitCycles += cycleEnd - cycleBegin;
         return result;
     }
     
