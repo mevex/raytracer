@@ -1,7 +1,7 @@
 @echo off
 
 set warningsOptions=-WX -W4 -wd4100 -wd4189 -wd4239 -wd4201 -wd4505 -wd4702 -wd4700
-set compilerFlags=-Oxi -Zi -nologo -FC -MT -fp:fast -GR- %warningsOptions%
+set compilerFlags=-O2i -Zi -nologo -FC -MT -fp:fast -GR- %warningsOptions%
 
 pushd \build
 
