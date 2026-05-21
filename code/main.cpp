@@ -11,7 +11,8 @@ unsigned long long ScatterCounter = 0;
 #include "main.h"
 #include <chrono>
 
-#define RUN_FAST 1
+#define RUN_FAST 0
+
 Color GetRayColorFast(Ray rays[4], Scene &scene, int depth, Color falseAmbientColor)
 {
     ++GetRayColorCounter;

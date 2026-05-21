@@ -1,9 +1,10 @@
 @echo off
 
-set warningsOptions=-WX -W4 -wd4100 -wd4189 -wd4239 -wd4201 -wd4505 -wd4702 -wd4700
-set compilerFlags=-O2i -Zi -nologo -FC -MT -fp:fast -GR- %warningsOptions%
+set warningsOptions=-WX -W1 -wd4100 -wd4189 -wd4239 -wd4201 -wd4505 -wd4702 -wd4700
+set compilerFlags=-O2i -EHsc -Zi -nologo -FC -MT -fp:fast -GR- %warningsOptions%
 
-pushd \build
+if not exist .\build\ mkdir build
+pushd .\build
 
 cl %compilerFlags% ..\code\main.cpp -link -nologo -opt:ref -incremental:no
 

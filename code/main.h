@@ -19,6 +19,9 @@ typedef double f64;
 
 typedef u8 byte;
 
+#include <vector>
+using std::vector;
+
 #define local_persist static
 #define global_variable static
 #define shared_function static
@@ -36,14 +39,13 @@ typedef u8 byte;
 #define ZERO 1e-6f
 
 // NOTE(mevex): Utility Functions
-
 inline f32 DegreesToRadians(f32 degrees)
 {
     f32 result = degrees * PI / 180.0f;
     return result;
 }
 
-#include <time.h>
+#include <stdlib.h>
 inline f32 RandomFloat()
 {
     // Returns a random real number in [0,1)
@@ -57,9 +59,6 @@ inline f32 RandomFloat(f32 min, f32 max)
     f32 result = min + (max - min) * RandomFloat();
     return result;
 }
-
-#include <vector>
-using std::vector;
 
 #include "simd.h"
 
