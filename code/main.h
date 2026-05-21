@@ -27,7 +27,7 @@ typedef u8 byte;
 #define Max(a, b) ((a) > (b) ? (a) : (b))
 #define Clamp(n, min, max) Max(Min((n), (max)), (min))
 #define Abs(a) ((a) < 0 ? -(a) : (a))
-#define Lerp(a, b, t) (1.0f-(t))*(a) + (t)*(b)
+#define Lerp(a, b, t) (1.0f - (t)) * (a) + (t) * (b)
 
 #include <limits>
 #undef INFINITY
@@ -47,14 +47,14 @@ inline f32 DegreesToRadians(f32 degrees)
 inline f32 RandomFloat()
 {
     // Returns a random real number in [0,1)
-    f32 result = rand() / (RAND_MAX + 1.0f);
+    f32 result = (f32)rand() / (f32)RAND_MAX;
     return result;
 }
 
 inline f32 RandomFloat(f32 min, f32 max)
 {
     // Returns a random real number in [min,max)
-    f32 result = min + (max-min)*RandomFloat();
+    f32 result = min + (max - min) * RandomFloat();
     return result;
 }
 
@@ -77,14 +77,13 @@ using std::vector;
 
 class Canvas
 {
-    public:
-    
-    void* memory;
+public:
+    void *memory;
     i32 width;
     i32 height;
     i32 bytesPerPixel;
     f32 ratio;
-    
+
     Canvas(i32 w, i32 h, i32 bpp)
     {
         width = w;
@@ -93,36 +92,36 @@ class Canvas
         ratio = (f32)w / (f32)h;
         memory = malloc(bpp * w * h);
     }
-    
+
     void SetPixel(i32 x, i32 y, f32 red, f32 green, f32 blue)
     {
-        u8 r,g,b;
-        
+        u8 r, g, b;
+
         r = (u8)(255.99f * sqrt(red));
         g = (u8)(255.99f * sqrt(green));
         b = (u8)(255.99f * sqrt(blue));
-        
+
         red = Min(red, 255);
         green = Min(green, 255);
         blue = Min(blue, 255);
-        
-        i32* pixel = (i32*)memory;
-        pixel += (height-y-1)*width + x;
-        *pixel = 255<<24 | b << 16 | g << 8 | r;
+
+        i32 *pixel = (i32 *)memory;
+        pixel += (height - y - 1) * width + x;
+        *pixel = 255 << 24 | b << 16 | g << 8 | r;
     }
-    
+
     void SetPixel(i32 x, i32 y, Color c)
     {
         SetPixel(x, y, c.r, c.g, c.b);
     }
-    
+
     void SetPixel(i32 x, i32 y, Color c, int spp)
     {
         f32 scale = 1.0f / spp;
         c *= scale;
         SetPixel(x, y, c.r, c.g, c.b);
     }
-    
+
     ~Canvas()
     {
         // NOTE(mevex): no need to free the memory since the canvas will be destroyed only when the program closes
@@ -131,33 +130,33 @@ class Canvas
 
 class Camera
 {
-    public:
+public:
     p3 position;
-    
+
     v3 vpHorizontal;
     v3 vpVertical;
     p3 vpLowerLeftCorner;
-    
+
     Camera(p3 pos, v3 lookAt, v3 viewUp, f32 verticalFOV, f32 aspectRatio)
     {
         f32 theta = DegreesToRadians(verticalFOV);
-        f32 h = tan(theta/2);
+        f32 h = tan(theta / 2);
         f32 vpHeight = 2.0f * h;
         f32 vpWidth = vpHeight * aspectRatio;
-        
+
         position = pos;
         v3 w = Unit(position - lookAt);
         v3 u = Unit(Cross(viewUp, w));
         v3 v = Cross(w, u);
-        
+
         vpHorizontal = vpWidth * u;
         vpVertical = vpHeight * v;
-        vpLowerLeftCorner = position - vpHorizontal/2.f - vpVertical/2.f - w;
+        vpLowerLeftCorner = position - vpHorizontal / 2.f - vpVertical / 2.f - w;
     }
-    
+
     inline Ray GetRay(f32 u, f32 v)
     {
-        v3 rayDirection = vpLowerLeftCorner + u*vpHorizontal + v*vpVertical - position;
+        v3 rayDirection = vpLowerLeftCorner + u * vpHorizontal + v * vpVertical - position;
         Ray result(position, rayDirection);
         return result;
     }
@@ -168,18 +167,18 @@ struct Scene
     vector<Hittable *> objects;
     vector<Light *> lights;
     int ambientLightIndex;
-    
+
     inline void Add(Hittable *obj)
     {
         objects.push_back(obj);
     }
-    
+
     inline void Add(Light *l)
     {
         lights.push_back(l);
     }
-    
-    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec)
+
+    bool Hit(Ray &r, f32 tMin, f32 tMax, HitRecord &rec)
     {
         ++HitCounter;
         u64 cycleBegin = __rdtsc();
@@ -187,59 +186,59 @@ struct Scene
         bool result = false;
         f32 closestT = tMax;
         HitRecord tmpRec = {};
-        
-        for(auto& obj : objects)
+
+        for (auto &obj : objects)
         {
-            if(obj->Hit(r, tMin, closestT, tmpRec) && tmpRec.frontFace)
+            if (obj->Hit(r, tMin, closestT, tmpRec) && tmpRec.frontFace)
             {
                 result = true;
                 closestT = tmpRec.t;
                 rec = tmpRec;
             }
         }
-        
+
         u64 cycleEnd = __rdtsc();
         HitCycles += cycleEnd - cycleBegin;
         return result;
     }
-    
-    bool Hit(Ray& r, f32 tMin, f32 tMax)
+
+    bool Hit(Ray &r, f32 tMin, f32 tMax)
     {
         HitRecord dummyRec = {};
-        for(auto& obj : objects)
+        for (auto &obj : objects)
         {
-            if(obj->Hit(r, tMin, tMax, dummyRec))
+            if (obj->Hit(r, tMin, tMax, dummyRec))
             {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     f32 GetLightIntensity(v3 normal, p3 hitPoint)
     {
         f32 intensity = 0;
-        
-        for(auto l : lights)
+
+        for (auto l : lights)
         {
-            if(l->type == POINT)
+            if (l->type == POINT)
             {
                 PointLight *light = (PointLight *)l;
                 Ray lightRay(hitPoint, light->position);
-                
-                if(Dot(normal, (lightRay.direction - lightRay.origin)) >= 0)
+
+                if (Dot(normal, (lightRay.direction - lightRay.origin)) >= 0)
                 {
-                    if(!Hit(lightRay, ZERO, 1.001f))
+                    if (!Hit(lightRay, ZERO, 1.001f))
                         intensity += l->ComputeLightning(normal, hitPoint);
                 }
             }
             else
                 intensity += l->ComputeLightning(normal, hitPoint);
         }
-        
+
         return intensity;
     }
 };
 
-#endif //MAIN_H
+#endif // MAIN_H

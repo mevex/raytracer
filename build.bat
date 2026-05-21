@@ -1,10 +1,11 @@
 @echo off
 
-set compilerFlags=-std:c++17 -EHsc -Ox -Zi -nologo -FC -WX -W4 -wd4100 -wd4189 -wd4239 -wd4201 -wd4505 -wd4702 -wd4700
+set warningsOptions=-WX -W4 -wd4100 -wd4189 -wd4239 -wd4201 -wd4505 -wd4702 -wd4700
+set compilerFlags=-Oxi -Zi -nologo -FC -MT -fp:fast -GR- %warningsOptions%
 
-pushd ..\build
+pushd \build
 
-cl %compilerFlags% ..\code\main.cpp  -link -opt:ref -incremental:no
+cl %compilerFlags% ..\code\main.cpp -link -nologo -opt:ref -incremental:no
 
 popd
 
