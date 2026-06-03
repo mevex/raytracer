@@ -221,7 +221,7 @@ struct Scene
 
         for (auto l : lights)
         {
-            if (l->type == POINT)
+            if (l->type == LT_POINT)
             {
                 PointLight *light = (PointLight *)l;
                 Ray lightRay(hitPoint, light->position);

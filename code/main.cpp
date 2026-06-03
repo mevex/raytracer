@@ -178,11 +178,172 @@ bool LoadObj(Mesh &mesh, const char *filename, const char *basepath = NULL, bool
     return true;
 }
 
+#include <windows.h>
+// #include <intrin.h>
+
+// NOTE: Prevents the compiler AND the processor to reorder reads across this boundary
+#define ReadBoundary \
+    _ReadBarrier();  \
+    _mm_lfence();
+// NOTE: Prevents the compiler AND the processor to reorder writes across this boundary
+#define WriteBoundary \
+    _WriteBarrier();  \
+    _mm_sfence();
+// NOTE: Prevents the compiler AND the processor to reorder reads and writes across this boundary
+#define ReadWriteBoundary \
+    _ReadWriteBarrier();  \
+    _mm_mfence();
+
+struct Job
+{
+    i32 threadIdx;
+    char *string;
+};
+
+// TODO: make it a circular buffer
+struct JobsQueue
+{
+public:
+    volatile u32 jobsCount;
+    volatile u32 nextJobIndex;
+
+    Job *jobs;
+    HANDLE semaphore;
+
+    JobsQueue(u64 queueSize)
+    {
+        jobsCount = 0;
+        nextJobIndex = 0;
+        jobs = (Job *)malloc(sizeof(Job) * queueSize);
+    }
+
+    void PushJob(char *string)
+    {
+        jobs[jobsCount].string = string;
+        jobs[jobsCount].threadIdx = -1; // Impossible default
+
+        // NOTE: We want to make sure that the string is actually stored
+        // before incrementing the jobs count
+        WriteBoundary;
+
+        jobsCount++;
+        ReleaseSemaphore(semaphore, 1, 0);
+    }
+
+    bool GetNextJob(Job *outJob, i32 threadIdx)
+    {
+        while (nextJobIndex < jobsCount)
+        {
+            i32 currentIndex = nextJobIndex;
+            if (currentIndex < jobsCount)
+            {
+                i32 jobIndex = InterlockedCompareExchange(&nextJobIndex, currentIndex + 1, currentIndex);
+                if (jobIndex == currentIndex)
+                {
+                    *outJob = jobs[jobIndex];
+                    outJob->threadIdx = threadIdx;
+
+                    WriteBoundary;
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+};
+
+struct ThreadParameters
+{
+    JobsQueue *queue;
+    i32 threadIdx;
+};
+
+inline void ExecuteJob(Job *job)
+{
+    printf("Thread %d: %s\n", job->threadIdx, job->string);
+}
+
+DWORD WINAPI ThreadProcedure(void *parameter)
+{
+    ThreadParameters *param = (ThreadParameters *)parameter;
+
+    Job job;
+    while (true)
+    {
+        if (param->queue->GetNextJob(&job, param->threadIdx))
+        {
+            ExecuteJob(&job);
+        }
+        else
+        {
+            // Wait on semaphore
+            WaitForSingleObject(param->queue->semaphore, INFINITE);
+        }
+    }
+
+    return 0;
+}
+
+#define THREADS_COUNT 3
+
 int main()
 {
+#if 1
+
+    JobsQueue jobsQueue(32);
+
+    HANDLE semaphore = CreateSemaphore(0, THREADS_COUNT, THREADS_COUNT, 0);
+    jobsQueue.semaphore = semaphore;
+
+    ThreadParameters params[THREADS_COUNT];
+    for (i32 i = 0; i < THREADS_COUNT; ++i)
+    {
+        params[i].queue = &jobsQueue;
+        params[i].threadIdx = i;
+        CreateThread(0, 0, &ThreadProcedure, &params[i], 0, 0);
+    }
+
+    jobsQueue.PushJob("String A1");
+    jobsQueue.PushJob("String A2");
+    jobsQueue.PushJob("String A3");
+    jobsQueue.PushJob("String A4");
+    jobsQueue.PushJob("String A5");
+    jobsQueue.PushJob("String A6");
+    jobsQueue.PushJob("String A7");
+    jobsQueue.PushJob("String A8");
+    jobsQueue.PushJob("String A9");
+    jobsQueue.PushJob("String A10");
+
+    Sleep(2000);
+    printf("\n");
+
+    jobsQueue.PushJob("String B1");
+    jobsQueue.PushJob("String B2");
+    jobsQueue.PushJob("String B3");
+    jobsQueue.PushJob("String B4");
+    jobsQueue.PushJob("String B5");
+    jobsQueue.PushJob("String B6");
+    jobsQueue.PushJob("String B7");
+    jobsQueue.PushJob("String B8");
+    jobsQueue.PushJob("String B9");
+    jobsQueue.PushJob("String B10");
+
+    // NOTE: We use also the main thread do execute jobs along with the other threads
+    Job job;
+    while (jobsQueue.GetNextJob(&job, THREADS_COUNT + 1))
+    {
+        ExecuteJob(&job);
+    }
+
+    printf("\nFinished!\n");
+
+    return 0;
+#else
     srand((u32)time(NULL));
 
-    int samplePerPixel = 8;
+    int samplePerPixel = 2;
     int maxDepth = 4;
 
     Canvas canvas(1280, 720, 4);
@@ -291,4 +452,5 @@ int main()
 
     getchar();
     return 0;
+#endif
 }

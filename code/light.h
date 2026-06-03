@@ -6,60 +6,57 @@
 
 enum LightType
 {
-    AMBIENT,
-    POINT
+    LT_AMBIENT,
+    LT_POINT,
 };
 
 // TODO(mevex): Implement colors for lights
 // TODO(mevex): Maybe add directional light?
 class Light
 {
-    public:
-    
+public:
     enum LightType type;
     virtual f32 ComputeLightning(v3 normal, p3 hitPoint) = 0;
 };
 
 class PointLight : public Light
 {
-    public:
-    
+public:
     p3 position;
     f32 intensity;
-    
-    PointLight(p3 p, f32 i) : position(p), intensity(i) 
+
+    PointLight(p3 p, f32 i) : position(p), intensity(i)
     {
-        type = POINT;
+        type = LT_POINT;
     }
-    
+
     f32 ComputeLightning(v3 normal, p3 hitPoint)
     {
         f32 finalIntensity = 0;
-        
+
         v3 light = position - hitPoint;
         f32 nDotL = Dot(normal, light);
         f32 iDivA = nDotL / (normal.Length() * light.Length());
         finalIntensity = intensity * iDivA;
-        
+
         return finalIntensity;
     }
 };
 
 class AmbientLight : public Light
 {
-    public:
-    
+public:
     f32 intensity;
-    
+
     AmbientLight(f32 i) : intensity(i)
     {
-        type = AMBIENT;
+        type = LT_AMBIENT;
     }
-    
+
     inline f32 ComputeLightning(v3 normal, p3 hitPoint)
     {
         return intensity;
     }
 };
 
-#endif //LIGHT_H
+#endif // LIGHT_H
