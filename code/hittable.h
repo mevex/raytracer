@@ -15,15 +15,15 @@ struct HitRecord
     f32 t = INFINITY;
     bool frontFace;
     Material *material;
-    
-    f32 u,v,w;
-    
-    inline void SetFaceNormal(Ray& r, v3& outNormal)
+
+    f32 u, v, w;
+
+    inline void SetFaceNormal(Ray &r, v3 &outNormal)
     {
         frontFace = Dot(r.direction, outNormal) < 0;
         normal = frontFace ? outNormal : -outNormal;
     }
-    
+
     inline void SetBarycentrics(f32 U, f32 V)
     {
         w = 1.0f - U - V;
@@ -34,54 +34,53 @@ struct HitRecord
 
 class Hittable
 {
-    public:
-    virtual bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) = 0;
+public:
+    virtual bool Hit(Ray &r, f32 tMin, f32 tMax, HitRecord &rec) = 0;
     virtual void Hit(Ray r[4], f32 tMin[4], f32 tMax[4], HitRecord rec[4]) = 0;
 };
 
 class Sphere : public Hittable
 {
-    public:
-    
+public:
     p3 center;
     f32 radius;
     Material *material;
-    
-    Sphere(p3 cen = {0,0,0}, f32 r = 0, Material *m = 0) : center(cen), radius(r), material(m) {}
-    
-    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
+
+    Sphere(p3 cen = {0, 0, 0}, f32 r = 0, Material *m = 0) : center(cen), radius(r), material(m) {}
+
+    bool Hit(Ray &r, f32 tMin, f32 tMax, HitRecord &rec) override
     {
         v3 co = r.origin - center;
         f32 a = r.direction.LengthSquared();
         f32 halfB = Dot(co, r.direction);
-        f32 c = co.LengthSquared() - radius*radius;
-        
-        f32 halfBSquared = halfB*halfB;
-        f32 aTimesC = a*c;
+        f32 c = co.LengthSquared() - radius * radius;
+
+        f32 halfBSquared = halfB * halfB;
+        f32 aTimesC = a * c;
         f32 discriminant = halfBSquared - aTimesC;
-        if(discriminant < 0)
+        if (discriminant < 0)
             return false;
-        
+
         // NOTE(mevex): Find the nearest root that lies in the acceptable range
         f32 sqrtDis = sqrt(discriminant);
         f32 root = (-halfB - sqrtDis) / a;
-        if(root < tMin || root > tMax)
+        if (root < tMin || root > tMax)
         {
             return false;
         }
-        
+
         rec.p = r.At(root);
         rec.t = root;
         v3 outNormal = (rec.p - center) / radius;
         rec.SetFaceNormal(r, outNormal);
         rec.material = material;
-        
+
         return true;
     }
 
     void Hit(Ray r[4], f32 tMin[4], f32 tMax[4], HitRecord rec[4]) override
     {
-        ++HitCounter;
+        // ++HitCounter;
         u64 cycleBegin = __rdtsc();
 
         // v3 co = r.origin - center;
@@ -108,12 +107,12 @@ class Sphere : public Hittable
         wide_f32 halfB = WideFloatAdd(WideFloatMultiply(coX, rayDirectionX), WideFloatAdd(WideFloatMultiply(coY, rayDirectionY), WideFloatMultiply(coZ, rayDirectionZ)));
 
         // f32 c = co.LengthSquared() - radius*radius;
-        wide_f32 radiusSquared = WideFloatSetAll(radius*radius);
+        wide_f32 radiusSquared = WideFloatSetAll(radius * radius);
         wide_f32 coLengthSquared = WideFloatAdd(WideFloatSquare(coX), WideFloatAdd(WideFloatSquare(coY), WideFloatSquare(coZ)));
 
         wide_f32 c = WideFloatSubtract(coLengthSquared, radiusSquared);
 
-        //f32 discriminant = halfBSquared - aTimesC;
+        // f32 discriminant = halfBSquared - aTimesC;
         wide_f32 discriminant = WideFloatSubtract(WideFloatSquare(halfB), WideFloatMultiply(a, c));
 
         // if discriminant is not greater than 0 return false
@@ -135,8 +134,8 @@ class Sphere : public Hittable
         wide_f32 root = WideFloatDivide(WideFloatSubtract(halfBNegated, sqrtDis), a);
 
         // NOTE(mevex): check that the root is between the min-max range
-        wide_f32 wideTMin = WideFloatSetIndividual(tMin[3], tMin[2], tMin[1], tMin[0]); 
-        wide_f32 wideTMax = WideFloatSetIndividual(tMax[3], tMax[2], tMax[1], tMax[0]); 
+        wide_f32 wideTMin = WideFloatSetIndividual(tMin[3], tMin[2], tMin[1], tMin[0]);
+        wide_f32 wideTMax = WideFloatSetIndividual(tMax[3], tMax[2], tMax[1], tMax[0]);
         wide_i32 rootLessThanTMax = WideCastFloatToInt(WideFloatLess(root, wideTMax));
         wide_i32 rootGreaterThanTMin = WideCastFloatToInt(WideFloatGreater(root, wideTMin));
         wideResults = WideIntAnd(wideResults, WideIntAnd(rootLessThanTMax, rootGreaterThanTMin));
@@ -147,11 +146,11 @@ class Sphere : public Hittable
 
         // TODO(mevex): simd this once the function takes simd arguments
         // rec.p = r.At(root) = origin + t*direction;
-        wide_f32 recPX = WideFloatAdd(rayOriginX , WideFloatMultiply(root, rayDirectionX));
-        wide_f32 recPY = WideFloatAdd(rayOriginY , WideFloatMultiply(root, rayDirectionY));
-        wide_f32 recPZ = WideFloatAdd(rayOriginZ , WideFloatMultiply(root, rayDirectionZ));
+        wide_f32 recPX = WideFloatAdd(rayOriginX, WideFloatMultiply(root, rayDirectionX));
+        wide_f32 recPY = WideFloatAdd(rayOriginY, WideFloatMultiply(root, rayDirectionY));
+        wide_f32 recPZ = WideFloatAdd(rayOriginZ, WideFloatMultiply(root, rayDirectionZ));
 
-        for(int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i)
         {
             if (ExtractInt(wideResults, i))
             {
@@ -164,54 +163,53 @@ class Sphere : public Hittable
         }
 
         u64 cycleEnd = __rdtsc();
-        HitCycles += cycleEnd - cycleBegin;
+        // HitCycles += cycleEnd - cycleBegin;
     }
-    
-    bool SimpleHit(Ray& r, f32 tMin, f32 tMax)
+
+    bool SimpleHit(Ray &r, f32 tMin, f32 tMax)
     {
         v3 oc = r.origin - center;
         f32 a = r.direction.LengthSquared();
         f32 halfB = Dot(oc, r.direction);
-        f32 c = oc.LengthSquared() - radius*radius;
-        
-        f32 discriminant = halfB*halfB - a*c;
+        f32 c = oc.LengthSquared() - radius * radius;
+
+        f32 discriminant = halfB * halfB - a * c;
         return discriminant > 0;
     }
 };
 
 class Plane : public Hittable
 {
-    public:
-    
+public:
     p3 point;
     v3 normal;
     Material *material;
-    
+
     Plane(p3 p, v3 n, Material *m = 0) : point(p), normal(n), material(m) {}
 
-    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
+    bool Hit(Ray &r, f32 tMin, f32 tMax, HitRecord &rec) override
     {
         f32 denom = Dot(r.direction, normal);
-        if(Abs(denom) <= ZERO)
+        if (Abs(denom) <= ZERO)
             return false;
-        
+
         f32 num = Dot((point - r.origin), normal);
         f32 t = num / denom;
-        
-        if(t < tMin || t > tMax)
+
+        if (t < tMin || t > tMax)
             return false;
-        
+
         rec.p = r.At(t);
         rec.t = t;
         rec.SetFaceNormal(r, normal);
         rec.material = material;
-        
+
         return true;
     }
 
     void Hit(Ray r[4], f32 tMin[4], f32 tMax[4], HitRecord rec[4])
     {
-        ++HitCounter;
+        // ++HitCounter;
         u64 cycleBegin = __rdtsc();
 
         // f32 denom = Dot(r.direction, normal);
@@ -221,20 +219,20 @@ class Plane : public Hittable
         wide_f32 normalX = WideFloatSetAll(normal.x);
         wide_f32 normalY = WideFloatSetAll(normal.y);
         wide_f32 normalZ = WideFloatSetAll(normal.z);
-        
+
         wide_f32 denom = WideFloatAdd(WideFloatMultiply(rayDirectionX, normalX), WideFloatAdd(WideFloatMultiply(rayDirectionY, normalY), WideFloatMultiply(rayDirectionZ, normalZ)));
 
         wide_f32 zero = WideFloatSetAll(ZERO);
         wide_f32 zeroNegated = WideFloatSubtract(WideFloatSetAll(0.0f), zero);
         wide_i32 onesMask = WideIntSetAll(0xFFFFFFFF);
 
-        //if not(denom < -ZERO || denom > ZERO)
+        // if not(denom < -ZERO || denom > ZERO)
         wide_i32 wideResults = WideIntOr(WideCastFloatToInt(WideFloatLess(denom, zeroNegated)), WideCastFloatToInt(WideFloatGreater(denom, zero)));
         if (WideIntTestAllZeros(onesMask, wideResults))
         {
             return;
         }
-        
+
         // f32 num = Dot((point - r.origin), normal);
         wide_f32 pointX = WideFloatSetAll(point.x);
         wide_f32 pointY = WideFloatSetAll(point.y);
@@ -249,21 +247,20 @@ class Plane : public Hittable
 
         // f32 t = num / denom;
         wide_f32 t = WideFloatDivide(num, denom);
-        
+
         // if(t > tMin && t < tMax)
-        wide_f32 wideTMin = WideFloatSetIndividual(tMin[3], tMin[2], tMin[1], tMin[0]); 
-        wide_f32 wideTMax = WideFloatSetIndividual(tMax[3], tMax[2], tMax[1], tMax[0]); 
+        wide_f32 wideTMin = WideFloatSetIndividual(tMin[3], tMin[2], tMin[1], tMin[0]);
+        wide_f32 wideTMax = WideFloatSetIndividual(tMax[3], tMax[2], tMax[1], tMax[0]);
         wideResults = WideIntAnd(wideResults, WideIntAnd(WideCastFloatToInt(WideFloatGreater(t, wideTMin)), WideCastFloatToInt(WideFloatLess(t, wideTMax))));
         if (WideIntTestAllZeros(onesMask, wideResults))
         {
             return;
         }
 
-
-        wide_f32 rayAtTX = WideFloatAdd(rayOriginX , WideFloatMultiply(t, rayDirectionX));
-        wide_f32 rayAtTY = WideFloatAdd(rayOriginY , WideFloatMultiply(t, rayDirectionY));
-        wide_f32 rayAtTZ = WideFloatAdd(rayOriginZ , WideFloatMultiply(t, rayDirectionZ));
-        for(int i = 0; i < 4; ++i)
+        wide_f32 rayAtTX = WideFloatAdd(rayOriginX, WideFloatMultiply(t, rayDirectionX));
+        wide_f32 rayAtTY = WideFloatAdd(rayOriginY, WideFloatMultiply(t, rayDirectionY));
+        wide_f32 rayAtTZ = WideFloatAdd(rayOriginZ, WideFloatMultiply(t, rayDirectionZ));
+        for (int i = 0; i < 4; ++i)
         {
             if (ExtractInt(wideResults, i))
             {
@@ -275,73 +272,72 @@ class Plane : public Hittable
         }
 
         u64 cycleEnd = __rdtsc();
-        HitCycles += cycleEnd - cycleBegin;
+        // HitCycles += cycleEnd - cycleBegin;
     }
 };
 
 class Triangle : public Hittable
 {
-    public:
-    
-    p3 a,b,c;
+public:
+    p3 a, b, c;
     v3 edge1;
     v3 edge2;
     v3 normal;
-    
+
     v3 ab, bc, ca;
-    
+
     Material *material;
-    
-    Triangle(p3 v0, p3 v1, p3 v2, Material *m) : a(v0), b(v1), c(v2),  material(m)
+
+    Triangle(p3 v0, p3 v1, p3 v2, Material *m) : a(v0), b(v1), c(v2), material(m)
     {
         edge1 = b - a;
         edge2 = c - a;
         normal = Cross(edge1, edge2);
-        
+
         // NOTE(mevex): This are used for the non MOLLER_TRUMBORE implementation
-        ab = b-a;
-        bc = c-b;
-        ca = a-c;
+        ab = b - a;
+        bc = c - b;
+        ca = a - c;
     }
-    
-    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
+
+    bool Hit(Ray &r, f32 tMin, f32 tMax, HitRecord &rec) override
     {
         // NOTE(mevex): MOLLER TRUMBORE ALGORITHM
         // NOTE(mevex): See scratchpixel's explanation of the algorithm for details on how it works and the variable names
-        
+
         v3 T = r.origin - a;
-        
+
         v3 P = Cross(r.direction, edge2);
         v3 Q = Cross(T, edge1);
-        
+
         f32 determinant = Dot(P, edge1);
         // NOTE(mevex): if the triangle and the ray are parallel (therefore there is no intersection) or if the triangle is backfacing the ray
-        if(Abs(determinant) <= ZERO)
+        if (Abs(determinant) <= ZERO)
             return false;
-        
+
         f32 inverseDet = 1.0f / determinant;
-        
+
         f32 u = Dot(P, T) * inverseDet;
         f32 v = Dot(Q, r.direction) * inverseDet;
-        if(u < 0 || v < 0 || u+v > 1)
+        if (u < 0 || v < 0 || u + v > 1)
             return false;
-        
+
         f32 t = Dot(Q, edge2) * inverseDet;
-        if(t < tMin || t > tMax)
+        if (t < tMin || t > tMax)
             return false;
-        
+
         rec.p = r.At(t);
         rec.t = t;
         rec.SetFaceNormal(r, normal);
         rec.material = material;
         rec.SetBarycentrics(u, v);
-        
+
         return true;
     }
 
     void Hit(Ray r[4], f32 tMin[4], f32 tMax[4], HitRecord rec[4])
     {
-        ++HitCounter;
+        // ++HitCounter;
         u64 cycleBegin = __rdtsc();
 
         // NOTE(mevex): we know for sure that the origin is the same for every ray
@@ -369,12 +365,12 @@ class Triangle : public Hittable
 
         // f32 determinant = Dot(P, edge1);
         wide_f32 determinant = WideFloatAdd(WideFloatMultiply(PX, edge1X), WideFloatAdd(WideFloatMultiply(PY, edge1Y), WideFloatMultiply(PZ, edge1Z)));
-        
+
         wide_f32 zero = WideFloatSetAll(ZERO);
         wide_f32 zeroNegated = WideFloatSubtract(WideFloatSetAll(0.0f), zero);
         wide_i32 onesMask = WideIntSetAll(0xFFFFFFFF);
 
-        //if not(determinant < -ZERO || determinant > ZERO)
+        // if not(determinant < -ZERO || determinant > ZERO)
         wide_i32 wideResults = WideIntOr(WideCastFloatToInt(WideFloatLess(determinant, zeroNegated)), WideCastFloatToInt(WideFloatGreater(determinant, zero)));
         if (WideIntTestAllZeros(onesMask, wideResults))
         {
@@ -383,11 +379,11 @@ class Triangle : public Hittable
 
         // f32 inverseDet = 1.0f / determinant;
         wide_f32 inverseDet = WideFloatDivide(WideFloatSetAll(1.0f), determinant);
-        
+
         // f32 u = Dot(P, T) * inverseDet;
         wide_f32 DotPT = WideFloatAdd(WideFloatMultiply(PX, TX), WideFloatAdd(WideFloatMultiply(PY, TY), WideFloatMultiply(PZ, TZ)));
         wide_f32 wideU = WideFloatMultiply(DotPT, inverseDet);
-        
+
         // f32 v = Dot(Q, r.direction) * inverseDet;
         wide_f32 rayDirectionX = WideFloatSetIndividual(r[3].direction.x, r[2].direction.x, r[1].direction.x, r[0].direction.x);
         wide_f32 rayDirectionY = WideFloatSetIndividual(r[3].direction.y, r[2].direction.y, r[1].direction.y, r[0].direction.y);
@@ -405,7 +401,7 @@ class Triangle : public Hittable
         {
             return;
         }
-        
+
         // f32 t = Dot(Q, edge2) * inverseDet;
         wide_f32 edge2X = WideFloatSetAll(edge2.x);
         wide_f32 edge2Y = WideFloatSetAll(edge2.y);
@@ -414,8 +410,8 @@ class Triangle : public Hittable
         wide_f32 t = WideFloatMultiply(dotQEdge2, inverseDet);
 
         // if not(t > tMin && t < tMax)
-        wide_f32 wideTMin = WideFloatSetIndividual(tMin[3], tMin[2], tMin[1], tMin[0]); 
-        wide_f32 wideTMax = WideFloatSetIndividual(tMax[3], tMax[2], tMax[1], tMax[0]); 
+        wide_f32 wideTMin = WideFloatSetIndividual(tMin[3], tMin[2], tMin[1], tMin[0]);
+        wide_f32 wideTMax = WideFloatSetIndividual(tMax[3], tMax[2], tMax[1], tMax[0]);
         wideResults = WideIntAnd(wideResults, WideIntAnd(WideCastFloatToInt(WideFloatGreater(t, wideTMin)), WideCastFloatToInt(WideFloatLess(t, wideTMax))));
         if (WideIntTestAllZeros(onesMask, wideResults))
         {
@@ -427,11 +423,11 @@ class Triangle : public Hittable
         wide_f32 rayOriginX = WideFloatSetIndividual(r[3].origin.x, r[2].origin.x, r[1].origin.x, r[0].origin.x);
         wide_f32 rayOriginY = WideFloatSetIndividual(r[3].origin.y, r[2].origin.y, r[1].origin.y, r[0].origin.y);
         wide_f32 rayOriginZ = WideFloatSetIndividual(r[3].origin.z, r[2].origin.z, r[1].origin.z, r[0].origin.z);
-        wide_f32 rayAtTX = WideFloatAdd(rayOriginX , WideFloatMultiply(t, rayDirectionX));
-        wide_f32 rayAtTY = WideFloatAdd(rayOriginY , WideFloatMultiply(t, rayDirectionY));
-        wide_f32 rayAtTZ = WideFloatAdd(rayOriginZ , WideFloatMultiply(t, rayDirectionZ));
+        wide_f32 rayAtTX = WideFloatAdd(rayOriginX, WideFloatMultiply(t, rayDirectionX));
+        wide_f32 rayAtTY = WideFloatAdd(rayOriginY, WideFloatMultiply(t, rayDirectionY));
+        wide_f32 rayAtTZ = WideFloatAdd(rayOriginZ, WideFloatMultiply(t, rayDirectionZ));
 
-        for(int i = 0; i < 4; ++i)
+        for (int i = 0; i < 4; ++i)
         {
             if (ExtractInt(wideResults, i))
             {
@@ -444,25 +440,24 @@ class Triangle : public Hittable
         }
 
         u64 cycleEnd = __rdtsc();
-        HitCycles += cycleEnd - cycleBegin;
+        // HitCycles += cycleEnd - cycleBegin;
     }
 };
 
 class Mesh : public Hittable
 {
-    public:
-    
+public:
     p3 position;
     Sphere boundingSphere;
-    
+
     vector<Lambertian> materials;
     vector<Triangle> triangles;
-    
+
     Mesh(p3 p, p3 relSpherePos, f32 sphereRadius) : position(p)
     {
         boundingSphere = Sphere(relSpherePos + position, sphereRadius);
     }
-    
+
     void AddTriangle(Triangle t)
     {
         t.a += position;
@@ -470,31 +465,31 @@ class Mesh : public Hittable
         t.c += position;
         triangles.push_back(t);
     }
-    
+
     void AddMaterial(Lambertian &m)
     {
         materials.push_back(m);
     }
-    
-    bool Hit(Ray& r, f32 tMin, f32 tMax, HitRecord& rec) override
+
+    bool Hit(Ray &r, f32 tMin, f32 tMax, HitRecord &rec) override
     {
         bool result = false;
         f32 closestT = tMax;
         HitRecord tmpRec = {};
-        
-        if(!boundingSphere.SimpleHit(r, tMin, closestT))
+
+        if (!boundingSphere.SimpleHit(r, tMin, closestT))
             return false;
-        
-        for(Triangle t : triangles)
+
+        for (Triangle t : triangles)
         {
-            if(t.Hit(r, tMin, closestT, tmpRec))
+            if (t.Hit(r, tMin, closestT, tmpRec))
             {
                 result = true;
                 closestT = tmpRec.t;
                 rec = tmpRec;
             }
         }
-        
+
         return result;
     }
 
@@ -504,7 +499,7 @@ class Mesh : public Hittable
         bool shouldTest = false;
         for (i32 i = 0; i < 4; i++)
         {
-            if(boundingSphere.SimpleHit(r[i], tMin[i], tMax[i]))
+            if (boundingSphere.SimpleHit(r[i], tMin[i], tMax[i]))
             {
                 shouldTest = true;
                 break;
@@ -513,7 +508,7 @@ class Mesh : public Hittable
 
         if (shouldTest)
         {
-            for(Triangle t : triangles)
+            for (Triangle t : triangles)
             {
                 HitRecord tempRec[4] = {};
                 t.Hit(r, tMin, tMax, tempRec);
@@ -530,4 +525,4 @@ class Mesh : public Hittable
     }
 };
 
-#endif //HITTABLE_H
+#endif // HITTABLE_H

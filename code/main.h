@@ -179,7 +179,7 @@ struct Scene
 
     bool Hit(Ray &r, f32 tMin, f32 tMax, HitRecord &rec)
     {
-        ++HitCounter;
+        // ++HitCounter;
         u64 cycleBegin = __rdtsc();
 
         bool result = false;
@@ -197,7 +197,7 @@ struct Scene
         }
 
         u64 cycleEnd = __rdtsc();
-        HitCycles += cycleEnd - cycleBegin;
+        // HitCycles += cycleEnd - cycleBegin;
         return result;
     }
 
